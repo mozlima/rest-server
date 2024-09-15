@@ -30,6 +30,7 @@ type restServerApp struct {
 
 // cmdRoot is the base command when no other command has been specified.
 func newRestServerApp() *restServerApp {
+	var noAuth bool
 	rv := &restServerApp{
 		CmdRoot: &cobra.Command{
 			Use:           "rest-server",
@@ -61,7 +62,8 @@ func newRestServerApp() *restServerApp {
 	flags.BoolVar(&rv.Server.TLS, "tls", rv.Server.TLS, "turn on TLS support")
 	flags.StringVar(&rv.Server.TLSCert, "tls-cert", rv.Server.TLSCert, "TLS certificate path")
 	flags.StringVar(&rv.Server.TLSKey, "tls-key", rv.Server.TLSKey, "TLS key path")
-	flags.BoolVar(&rv.Server.NoAuth, "no-auth", rv.Server.NoAuth, "disable .htpasswd authentication")
+	flags.BoolVar(&noAuth, "no-auth", noAuth, "disable .htpasswd authentication")
+	flags.Var(&rv.Server.AuthType, "auth-type", "Authentication method: 'none' (same as '--no-auth'), 'htpasswd', or 'http_x_remote_user'.")
 	flags.StringVar(&rv.Server.HtpasswdPath, "htpasswd-file", rv.Server.HtpasswdPath, "location of .htpasswd file (default: \"<data directory>/.htpasswd)\"")
 	flags.BoolVar(&rv.Server.NoVerifyUpload, "no-verify-upload", rv.Server.NoVerifyUpload,
 		"do not verify the integrity of uploaded data. DO NOT enable unless the rest-server runs on a very low-power device")
@@ -70,6 +72,7 @@ func newRestServerApp() *restServerApp {
 	flags.BoolVar(&rv.Server.Prometheus, "prometheus", rv.Server.Prometheus, "enable Prometheus metrics")
 	flags.BoolVar(&rv.Server.PrometheusNoAuth, "prometheus-no-auth", rv.Server.PrometheusNoAuth, "disable auth for Prometheus /metrics endpoint")
 
+	rv.CmdRoot.MarkFlagsMutuallyExclusive("no-auth", "auth-type")
 	return rv
 }
 
@@ -124,11 +127,17 @@ func (app *restServerApp) runRoot(cmd *cobra.Command, args []string) error {
 		defer log.Println("Stopped CPU profiling")
 	}
 
-	if app.Server.NoAuth {
+	if noAuth, _ := cmd.Flags().GetBool("no-auth"); noAuth {
+		cmd.Flags().Set("auth-type", "none")
+	}
+
+	if app.Server.AuthType == restserver.AuthTypeNone {
 		log.Println("Authentication disabled")
 	} else {
 		log.Println("Authentication enabled")
 	}
+
+	log.Printf("Authentication type: %v", app.Server.AuthType)
 
 	handler, err := restserver.NewHandler(&app.Server)
 	if err != nil {
