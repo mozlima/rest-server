@@ -13,6 +13,45 @@ import (
 	"github.com/restic/rest-server/repo"
 )
 
+type AuthType int
+
+const (
+	AuthTypeHtpasswd AuthType = iota // Default authentication type; order matters
+	AuthTypeNone
+	AuthTypeHttpXRemoteUser
+)
+
+func (e AuthType) String() string {
+	switch e {
+	case AuthTypeNone:
+		return "none"
+	case AuthTypeHtpasswd:
+		return "htpasswd"
+	case AuthTypeHttpXRemoteUser:
+		return "http_x_remote_user"
+	default:
+		return ""
+	}
+}
+
+func (e *AuthType) Type() string {
+	return "AuthType"
+}
+
+func (e *AuthType) Set(v string) error {
+	switch v {
+	case "none":
+		*e = AuthTypeNone
+	case "htpasswd":
+		*e = AuthTypeHtpasswd
+	case "http_x_remote_user":
+		*e = AuthTypeHttpXRemoteUser
+	default:
+		return errors.New("invalid authentication type")
+	}
+	return nil
+}
+
 // Server encapsulates the rest-server's settings and repo management logic
 type Server struct {
 	Path             string
@@ -23,7 +62,7 @@ type Server struct {
 	TLSKey           string
 	TLSCert          string
 	TLS              bool
-	NoAuth           bool
+	AuthType         AuthType
 	AppendOnly       bool
 	PrivateRepos     bool
 	Prometheus       bool
@@ -70,7 +109,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the current user is allowed to access this path
-	if !s.NoAuth && s.PrivateRepos {
+	if s.AuthType != AuthTypeNone && s.PrivateRepos {
 		if len(folderPath) == 0 || folderPath[0] != username {
 			httpDefaultError(w, http.StatusUnauthorized)
 			return
@@ -158,7 +197,8 @@ func join(base string, names ...string) (string, error) {
 // splitURLPath splits the URL path into a folderPath of the subrepo, and
 // a remainder that can be passed to repo.Handler.
 // Example: /foo/bar/locks/0123... will be split into:
-//          ["foo", "bar"] and "/locks/0123..."
+//
+//	["foo", "bar"] and "/locks/0123..."
 func splitURLPath(urlPath string, maxDepth int) (folderPath []string, remainder string) {
 	if !strings.HasPrefix(urlPath, "/") {
 		// Really should start with "/"

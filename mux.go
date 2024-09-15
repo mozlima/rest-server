@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/handlers"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -38,15 +39,21 @@ func (s *Server) logHandler(next http.Handler) http.Handler {
 }
 
 func (s *Server) checkAuth(r *http.Request) (username string, ok bool) {
-	if s.NoAuth {
+	if s.AuthType == AuthTypeNone {
 		return username, true
+	} else if s.AuthType == AuthTypeHttpXRemoteUser {
+		username = strings.TrimSpace(r.Header.Get("X-Remote-User"))
+		if !validUsernameRegexp.MatchString(username) {
+			username = ""
+		}
+	} else if s.AuthType == AuthTypeHtpasswd {
+		var password string
+		username, password, ok = r.BasicAuth()
+		if !ok || !s.htpasswdFile.Validate(username, password) {
+			username = ""
+		}
 	}
-	var password string
-	username, password, ok = r.BasicAuth()
-	if !ok || !s.htpasswdFile.Validate(username, password) {
-		return "", false
-	}
-	return username, true
+	return username, username != ""
 }
 
 func (s *Server) wrapMetricsAuth(f http.HandlerFunc) http.HandlerFunc {
@@ -66,14 +73,15 @@ func (s *Server) wrapMetricsAuth(f http.HandlerFunc) http.HandlerFunc {
 
 // NewHandler returns the master HTTP multiplexer/router.
 func NewHandler(server *Server) (http.Handler, error) {
-	if !server.NoAuth {
+	if server.AuthType == AuthTypeHtpasswd {
 		var err error
 		if server.HtpasswdPath == "" {
 			server.HtpasswdPath = filepath.Join(server.Path, ".htpasswd")
 		}
 		server.htpasswdFile, err = NewHtpasswdFromFile(server.HtpasswdPath)
 		if err != nil {
-			return nil, fmt.Errorf("cannot load %s (use --no-auth to disable): %v", server.HtpasswdPath, err)
+			return nil, fmt.Errorf("cannot load %s (use a different --auth-type or set --auth-type to 'none' to disable authentication): %v",
+				server.HtpasswdPath, err)
 		}
 		log.Printf("Loaded htpasswd file %s", server.HtpasswdPath)
 	}

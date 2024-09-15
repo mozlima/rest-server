@@ -201,7 +201,7 @@ func createTestHandler(t *testing.T, conf Server) (http.Handler, string, string,
 func TestResticAppendOnlyHandler(t *testing.T) {
 	mux, data, fileID, _, cleanup := createTestHandler(t, Server{
 		AppendOnly:   true,
-		NoAuth:       true,
+		AuthType:     AuthTypeNone,
 		Debug:        true,
 		PanicOnError: true,
 	})
@@ -301,7 +301,7 @@ func createIdempotentDeleteSeq(t testing.TB, path string, data string) []TestReq
 // TestResticHandler runs tests on the restic handler code, especially in append-only mode.
 func TestResticHandler(t *testing.T) {
 	mux, data, fileID, _, cleanup := createTestHandler(t, Server{
-		NoAuth:       true,
+		AuthType:     AuthTypeNone,
 		Debug:        true,
 		PanicOnError: true,
 	})
@@ -333,7 +333,7 @@ func TestResticHandler(t *testing.T) {
 func TestResticErrorHandler(t *testing.T) {
 	mux, _, _, tempdir, cleanup := createTestHandler(t, Server{
 		AppendOnly: true,
-		NoAuth:     true,
+		AuthType:   AuthTypeNone,
 		Debug:      true,
 	})
 	defer cleanup()
@@ -382,7 +382,7 @@ func TestResticErrorHandler(t *testing.T) {
 func TestEmptyList(t *testing.T) {
 	mux, _, _, _, cleanup := createTestHandler(t, Server{
 		AppendOnly: true,
-		NoAuth:     true,
+		AuthType:   AuthTypeNone,
 		Debug:      true,
 	})
 	defer cleanup()
@@ -406,7 +406,7 @@ func TestEmptyList(t *testing.T) {
 func TestListWithUnexpectedFiles(t *testing.T) {
 	mux, _, _, tempdir, cleanup := createTestHandler(t, Server{
 		AppendOnly: true,
-		NoAuth:     true,
+		AuthType:   AuthTypeNone,
 		Debug:      true,
 	})
 	defer cleanup()
@@ -523,7 +523,7 @@ func (d *delayErrorReader) Read(p []byte) (int, error) {
 func TestAbortedRequest(t *testing.T) {
 	// the race condition doesn't happen for append-only repositories
 	mux, _, _, _, cleanup := createTestHandler(t, Server{
-		NoAuth:       true,
+		AuthType:     AuthTypeNone,
 		Debug:        true,
 		PanicOnError: true,
 	})

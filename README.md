@@ -33,6 +33,7 @@ Usage:
 
 Flags:
       --append-only            enable append only mode
+      --auth-type string       Authentication method: 'none' (same as '--no-auth'), 'htpasswd', or 'http_x_remote_user'
       --cpu-profile string     write CPU profile to file
       --debug                  output debug messages
   -h, --help                   help for rest-server
